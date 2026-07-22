@@ -11,8 +11,8 @@ The app is a native arm64 bundle with an ad-hoc signature. If Gatekeeper blocks 
 ## Current Checksums
 
 ```text
-ZIP         fe2e0a36e125e1552214100ff02f064ec4833643a63ce13e4acfb101348b93f6
-RAW BINARY  90ad052f8fc9d4d3693289ce794333838959ec293fc0a3e5671b3d057e707e3d
+ZIP         4cbda4a550a0ce81d9a5a2c2ac11d86c5e51bcd47f084cd24bbb0d788eb4b56d
+RAW BINARY  bbb273e0519e0a603730e7f9814c9490a6a7fde9a1edc95ff0a6d167deaef6e0
 ```
 
 The raw arm64 executable is a troubleshooting/build artifact. The `archive/` folder contains an exact preserved duplicate app and should not be published.

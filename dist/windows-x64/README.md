@@ -11,8 +11,8 @@ The app binds to `127.0.0.1`, prefers port `4000`, moves upward when a port is o
 ## Current Checksums
 
 ```text
-EXE  7715fa0c53e518a20d06a8b4451f91d8fe5109f436b15bf26d81aa83d95a1f41
-ZIP  19532a7f51e92d46c2961b8aa2d57a996b482e147165cc0172152b2e85d1aef1
+EXE  c690ff84aaec3ebf69b4e8d281571ce4f448d31edec1c8e39a64d3daa7f584e0
+ZIP  95e9ea01f86986b6e2cbf758edea36441e91b3c260bc2312754544b0944121b0
 ```
 
 The `archive/` folder contains an older local ZIP and should not be published.

@@ -175,17 +175,19 @@ function detailRows(check, hasTables) {
   for (const warning of Array.isArray(check.recommendationWarning) ? check.recommendationWarning : [check.recommendationWarning]) {
     if (warning) rows.push(["", valueText(warning), true]);
   }
-  if (!hasTables && check.evidence) rows.push(["Evidence", valueText(check.evidence), false]);
+  if (!hasTables && check.evidence && !check.evidenceAtBottom) rows.push(["Evidence", valueText(check.evidence), false]);
   if (check.details) rows.push(["Details", valueText(check.details), check.detailTone === "critical"]);
   for (const warning of Array.isArray(check.detailsWarning) ? check.detailsWarning : [check.detailsWarning]) {
     if (warning) rows.push(["", valueText(warning), true]);
   }
   for (const row of check.detailRows || []) {
     const bullets = Array.isArray(row.bullets) ? `\n${row.bullets.map((item) => `- ${item}`).join("\n")}` : "";
-    rows.push([row.label || "Details", `${valueText(row.text ?? row.value)}${bullets}`, row.tone === "critical"]);
+    const footer = row.footer ? `\n${valueText(row.footer)}` : "";
+    rows.push([row.label || "Details", `${valueText(row.text ?? row.value)}${bullets}${footer}`, row.tone === "critical"]);
   }
   if (check.specialConsiderations?.text) rows.push(["Special Considerations", valueText(check.specialConsiderations.text), false]);
   if (check.source) rows.push(["Guide Section", valueText(check.source), false]);
+  if (!hasTables && check.evidence && check.evidenceAtBottom) rows.push(["Evidence", valueText(check.evidence), true]);
   return rows;
 }
 

@@ -809,7 +809,7 @@ function impliedRuleDescription(key) {
   return match ? match[1] : "";
 }
 
-function makeCheck({ id, category, title, recommendation, recommendationWarning = "", status, severity = "medium", evidence = "", evidenceTable = null, evidenceTables = null, details = "", detailsLink = null, detailsWarning = "", detailRows = null, specialConsiderations = null, source = "", commands = [], remediation = null, detailTone = "", hideBadges = false }) {
+function makeCheck({ id, category, title, recommendation, recommendationWarning = "", status, severity = "medium", evidence = "", evidenceAtBottom = false, evidenceTable = null, evidenceTables = null, details = "", detailsLink = null, detailsWarning = "", detailRows = null, specialConsiderations = null, source = "", commands = [], remediation = null, detailTone = "", hideBadges = false }) {
   return {
     id,
     category,
@@ -819,6 +819,7 @@ function makeCheck({ id, category, title, recommendation, recommendationWarning 
     status: status === "reviewed" ? "needs-review" : status,
     severity,
     evidence,
+    evidenceAtBottom,
     evidenceTable,
     evidenceTables,
     details,
@@ -1093,6 +1094,97 @@ async function administratorLastLogin(session, username) {
     session.adminLastLoginCache.set(cacheKey, lookup);
   }
   return lookup;
+}
+
+const CVE_2026_16232_INDICATOR_IPS = [
+  "151.241.99.207",
+  "151.241.99.233",
+  "158.62.198.182",
+  "192.142.10.99",
+  "139.28.37.250"
+];
+const CVE_2026_16232_LOG_FILTER = CVE_2026_16232_INDICATOR_IPS
+  .flatMap((ip) => [`src:${ip}`, `dst:${ip}`])
+  .join(" OR ");
+
+function logEvidenceValue(logEntry, ...keys) {
+  for (const key of keys) {
+    const value = logEntry?.[key];
+    if (value !== undefined && value !== null && value !== "") {
+      if (typeof value === "object") {
+        return value.name || value["iso-8601"] || JSON.stringify(value);
+      }
+      return String(value);
+    }
+  }
+  return "Not returned";
+}
+
+async function evaluateCve202616232LogExamination(session) {
+  const result = await tryCommand(session, "show-logs", {
+    "new-query": {
+      "time-frame": "last-30-days",
+      "max-logs-per-request": 2,
+      filter: CVE_2026_16232_LOG_FILTER
+    }
+  });
+  const information = "Based on sk185169, Check Point identified known attacker IP addresses associated with CVE-2026-16232. This query checks for traffic sourced from or destined to these addresses during the last 30 days.";
+  if (!result.ok) {
+    return makeCheck({
+      id: "cve.2026-16232-log-examination",
+      category: "CVE-2026-16232 Log Examination",
+      title: "CVE-2026-16232 Log Examination",
+      recommendation: "Run the supplied filter in the SmartDashboard Logs tab and review any matching traffic.",
+      status: "unknown",
+      severity: "high",
+      evidence: `The Management API log query failed: ${result.error?.error || "Unknown error"}`,
+      evidenceAtBottom: true,
+      details: "The automated 30-day log examination could not be completed.",
+      detailRows: [
+        { label: "Information", text: information, links: [{ label: "sk185169", url: "https://support.checkpoint.com/results/sk/sk185169" }], bullets: CVE_2026_16232_INDICATOR_IPS, footer: `If you want to query in SmartDashboard use this filter (${CVE_2026_16232_LOG_FILTER})` }
+      ],
+      source: "",
+      commands: [`show-logs: new-query.time-frame last-30-days,new-query.max-logs-per-request 2,new-query.filter ${CVE_2026_16232_LOG_FILTER}`]
+    });
+  }
+
+  const logs = Array.isArray(result.data?.logs) ? result.data.logs : [];
+  const rows = logs.map((logEntry) => ({
+    "Time": logEvidenceValue(logEntry, "time", "timestamp"),
+    "Source": logEvidenceValue(logEntry, "src", "source", "source_ip"),
+    "Destination": logEvidenceValue(logEntry, "dst", "destination", "destination_ip"),
+    "Service": logEvidenceValue(logEntry, "service", "service_id", "dst_port", "destination_port"),
+    "Action": logEvidenceValue(logEntry, "action"),
+    "Rule": logEvidenceValue(logEntry, "rule_name", "rule-name", "rule", "rule_uid"),
+    "Origin": logEvidenceValue(logEntry, "origin", "origin_ip", "gateway")
+  }));
+  const hasMatches = rows.length > 0;
+  return makeCheck({
+    id: "cve.2026-16232-log-examination",
+    category: "CVE-2026-16232 Log Examination",
+    title: "CVE-2026-16232 Log Examination",
+    recommendation: hasMatches
+      ? "Matching traffic was returned. Investigate the complete log history immediately and follow the response guidance in sk185169."
+      : "No matching traffic was returned by this limited 30-day query. Use the supplied filter in SmartDashboard if a broader or longer investigation is required.",
+    status: hasMatches ? "needs-review" : "pass",
+    severity: "high",
+    evidence: hasMatches ? "Matching traffic was returned for one or more known attacker IP addresses." : "No logs related to the search found",
+    evidenceAtBottom: true,
+    evidenceTable: hasMatches ? {
+      title: `Matching Logs (${rows.length}; query limited to 2 results)`,
+      columns: ["Time", "Source", "Destination", "Service", "Action", "Rule", "Origin"],
+      rows
+    } : null,
+    details: hasMatches
+      ? "The query returns at most two log records. Use the SmartDashboard filter in the Information section to complete the investigation and expand the time range when appropriate."
+      : "The Management API query was limited to two results and the last 30 days. A zero-result response does not prove the environment was never exposed.",
+    detailTone: hasMatches ? "critical" : "",
+    detailRows: [
+      { label: "Information", text: information, links: [{ label: "sk185169", url: "https://support.checkpoint.com/results/sk/sk185169" }], bullets: CVE_2026_16232_INDICATOR_IPS, footer: `If you want to query in SmartDashboard use this filter (${CVE_2026_16232_LOG_FILTER})` }
+    ],
+    source: "",
+    commands: [`show-logs: new-query.time-frame last-30-days,new-query.max-logs-per-request 2,new-query.filter ${CVE_2026_16232_LOG_FILTER}`]
+  });
 }
 
 function adminReviewRecommendationWarnings(noRecentLoginNames = [], neverExpirationNames = []) {
@@ -6756,7 +6848,8 @@ const TRUSTED_ACCESS_REVIEW_CHECK_IDS = new Set([
   "gaia.expert-mode-access",
   "gaia.password-policy-hardening",
   "gaia.system-logging-management",
-  "gaia.management-external-syslog"
+  "gaia.management-external-syslog",
+  "cve.2026-16232-log-examination"
 ]);
 
 function trustedAccessReviewChecks(checks) {
@@ -6833,14 +6926,16 @@ async function scanHardening(session) {
     administrativeSourceIpAddresses,
     gaiaFullScanEvidence,
     administratorApiKeyAuthentication,
-    administratorAccountChecks
+    administratorAccountChecks,
+    cve202616232LogExamination
   ] = await Promise.all([
     collectGatewayStealthRuleEvidence(session, policyTargets, packages),
     skipManagementPlaneProtection ? Promise.resolve(null) : collectManagementFirewallEvidence(session, gatewaysAndServers, topologyTargets),
     skipManagementPlaneProtection ? Promise.resolve(null) : collectAdministrativeSourceIpEvidence(session, gatewaysAndServers, packages, networks, addressRanges),
     collectGaiaFullScanEvidence(session, gaiaTargets, gatewaysAndServers),
     skipSmart1OnlyChecks ? Promise.resolve(null) : evaluateAdministratorApiKeyAuthentication(administrators, session),
-    evaluateAdministrators(administrators, session)
+    evaluateAdministrators(administrators, session),
+    evaluateCve202616232LogExamination(session)
   ]);
   const gaiaAllowedHostAccess = gaiaFullScanEvidence.allowedHostAccess;
   const gaiaAdministratorSettings = gaiaFullScanEvidence.administratorSettings;
@@ -6867,7 +6962,8 @@ async function scanHardening(session) {
     evaluateGaiaExpertModeAccess(gaiaAdministratorSettings, session),
     evaluateGaiaPasswordPolicyHardening(gaiaPasswordPolicy, session),
     evaluateGaiaSystemLoggingToManagement(gaiaSystemLogging, session),
-    evaluateGaiaManagementExternalSyslog(gaiaManagementExternalSyslog, session)
+    evaluateGaiaManagementExternalSyslog(gaiaManagementExternalSyslog, session),
+    cve202616232LogExamination
   ];
   checks = trustedAccessReviewChecks(checks);
 
@@ -6901,6 +6997,7 @@ async function scanHardening(session) {
       "show-simple-gateways": gateways.ok ? "ok" : gateways.error,
       "show-packages": packages.ok ? "ok" : packages.error,
       "show-gateways-and-servers": gatewaysAndServers.ok ? "ok" : gatewaysAndServers.error,
+      "show-logs/cve-2026-16232": cve202616232LogExamination.status === "unknown" ? "failed" : "ok",
       ...(skipManagementPlaneProtection ? {} : {
         "show-networks": networks.ok ? "ok" : networks.error,
         "show-address-ranges": addressRanges.ok ? "ok" : addressRanges.error
@@ -6936,6 +7033,7 @@ async function scanHardening(session) {
       "show-simple-gateways",
       "show-packages",
       "show-gateways-and-servers",
+      "show-logs: CVE-2026-16232 indicators, last 30 days",
       ...(skipManagementPlaneProtection ? [] : ["show-networks", "show-address-ranges"]),
       ...(skipManagementPlaneProtection ? [] : ["show-nat-rulebase"]),
       "run-script",

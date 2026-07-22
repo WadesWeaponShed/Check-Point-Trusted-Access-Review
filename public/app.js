@@ -414,8 +414,23 @@ function renderDetailRows(rows = []) {
     if (Array.isArray(row.bullets) && row.bullets.length) {
       content += `<ul class="detail-bullets">${row.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`;
     }
+    if (row.footer) {
+      content += `<div class="detail-footer">${escapeHtml(String(row.footer))}</div>`;
+    }
     return `<dt>${escapeHtml(row.label || "Details")}</dt><dd class="${classes}">${content}</dd>`;
   }).join("");
+}
+
+function renderBottomEvidence(check) {
+  if (!check?.evidenceAtBottom || !check.evidence || check.evidenceTable || check.evidenceTables?.length) {
+    return "";
+  }
+  return `
+    <div class="evidence-message">
+      <div class="evidence-title"><span>Evidence</span></div>
+      <strong>${escapeHtml(String(check.evidence))}</strong>
+    </div>
+  `;
 }
 
 function renderSpecialConsiderations(special = null) {
@@ -1224,7 +1239,7 @@ function renderChecks() {
             <div class="check-card-body">
               <dl class="check-details">${renderDetails({
                 "Recommendation": check.recommendation,
-                ...(check.evidenceTable || check.evidenceTables ? {} : { "Evidence": check.evidence }),
+                ...(check.evidenceAtBottom || check.evidenceTable || check.evidenceTables ? {} : { "Evidence": check.evidence }),
                 "Details": check.details
               }, { detailTone: check.detailTone, detailLink: check.detailsLink, detailWarning: check.detailsWarning, recommendationWarning: check.recommendationWarning })}
               ${renderDetailRows(check.detailRows)}
@@ -1232,6 +1247,7 @@ function renderChecks() {
               ${renderDetails({ "Guide section": check.source })}</dl>
               ${renderEvidenceTable(check.evidenceTable, check.id)}
               ${renderEvidenceTables(check.evidenceTables, check.id)}
+              ${renderBottomEvidence(check)}
               ${renderRemediation(check)}
               ${renderCheckActions(check)}
             </div>

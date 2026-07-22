@@ -1339,6 +1339,14 @@ summary {
   margin-top: 5px;
 }
 
+.detail-footer {
+  margin-top: 10px;
+}
+
+.evidence-message {
+  margin-top: 14px;
+}
+
 .inline-link {
   appearance: none;
   border: 0;
