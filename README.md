@@ -1,5 +1,7 @@
 # Check Point Trusted Access Review
 
+PLEASE ALWAYS APPLY VENDOR PATCHES AS QUICKLY AS POSSIBLE
+
 Local web app for conducting a Check Point Trusted Access Review with trusted Check Point Management API commands. Most checks are review-only. Any available remediation action requires explicit operator approval.
 
 This scanner is built specifically to look for configuration issues around CVE-2026-16232 (https://support.checkpoint.com/results/sk/sk185169), CVE-2026-62144 (https://support.checkpoint.com/results/sk/sk185152), and CVE-2026-62145 (https://support.checkpoint.com/results/sk/sk185153)
