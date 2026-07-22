@@ -1,0 +1,31 @@
+{
+  "name": "check-point-trusted-access-review",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web UI for conducting Check Point Trusted Access Reviews with explicitly approved remediation actions.",
+  "type": "module",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js",
+    "build:windows": "pkg . --targets node22-win-x64 --public-packages \"*\" --public --output dist/windows-x64/Check-Point-Trusted-Access-Review-Windows-x64.exe",
+    "build:macos-arm64": "pkg . --targets node22-macos-arm64 --public-packages \"*\" --public --output dist/macos-apple-silicon/Check-Point-Trusted-Access-Review-macOS-arm64"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "6.21.0"
+  },
+  "pkg": {
+    "scripts": [
+      "scripts/direct_report_pdf.js"
+    ],
+    "assets": [
+      "public/**/*"
+    ]
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}
